@@ -28,8 +28,8 @@ def load_config(path):
 
 # Функция загрузки карты тегов из БД
 def load_tag_map(con):
-    # Чтение всех тегов из таблицы TagMap
-    result = con.execute("SELECT id, tag_name, segment, modbus_address FROM TagMap").fetchall()
+    # Чтение всех тегов из таблицы ModbusTagMap
+    result = con.execute("SELECT id, tag_name, segment, modbus_address FROM ModbusTagMap").fetchall()
     # Возвращаем список словарей с данными тегов
     return [{"id": row[0], "tag_name": row[1], "segment": row[2], "modbus_address": row[3]} for row in result]
 

@@ -9,7 +9,7 @@ import openpyxl
 # Путь к базе данных DuckDB (в корне проекта)
 DB_PATH = Path(__file__).parent / "bridgehub.duckdb"
 
-# Путь к файлу Excel с картой тегов
+# Путь к файлу Excel с картой тегов Modbus
 EXCEL_PATH = Path(__file__).parent / "КартаMB.xlsx"
 
 # Названия листов для импорта
@@ -30,13 +30,13 @@ def read_sheet(sheet_name):
     return rows
 
 
-# Функция импорта тегов из Excel в БД
-def import_tag_map():
+# Функция импорта Modbus тегов из Excel в БД
+def import_modbus_tags():
     # Открытие соединения с базой данных DuckDB
     con = duckdb.connect(str(DB_PATH))
 
-    # Очистка таблицы TagMap перед импортом новых данных
-    con.execute("DELETE FROM TagMap")
+    # Очистка таблицы ModbusTagMap перед импортом новых данных
+    con.execute("DELETE FROM ModbusTagMap")
 
     # Счетчик для автоинкремента ID
     tag_id = 1
@@ -45,13 +45,13 @@ def import_tag_map():
     for sheet_name in SHEETS:
         # Чтение данных из листа
         rows = read_sheet(sheet_name)
-        # Вставка данных в таблицу TagMap
+        # Вставка данных в таблицу ModbusTagMap
         for row in rows:
             # Проверка, что строка не пустая
             if row[0] is not None:
-                # Вставка записи в таблицу TagMap с автоинкрементом ID
+                # Вставка записи в таблицу ModbusTagMap с автоинкрементом ID
                 con.execute("""
-                    INSERT INTO TagMap (id, tag_name, data_type, binding, segment, modbus_address, unit, description, access_mode, device, group_name, scaling, alarm, notes, source)
+                    INSERT INTO ModbusTagMap (id, tag_name, data_type, binding, segment, modbus_address, unit, description, access_mode, device, group_name, scaling, alarm, notes, source)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, [
                     tag_id,           # id (автоинкремент)
@@ -74,16 +74,15 @@ def import_tag_map():
                 tag_id += 1
 
     # Подсчет количества импортированных тегов
-    count = con.execute("SELECT COUNT(*) FROM TagMap").fetchone()[0]
+    count = con.execute("SELECT COUNT(*) FROM ModbusTagMap").fetchone()[0]
 
     # Закрытие соединения с базой данных
     con.close()
 
     # Вывод результата
-    print(f"Imported {count} tags from {EXCEL_PATH}")
+    print(f"Imported {count} Modbus tags from {EXCEL_PATH}")
 
 
 # Точка входа — выполнение только при прямом запуске скрипта
 if __name__ == "__main__":
-    # Вызов функции импорта тегов
-    import_tag_map()
+    import_modbus_tags()
