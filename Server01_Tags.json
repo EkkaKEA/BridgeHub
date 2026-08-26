@@ -1,0 +1,34 @@
+{
+  "device_id": "SCADA_Server_01",
+  "timestamp_batch": "2026-08-26T14:35:12.000+03:00",
+  "tags": [
+    {
+      "id": "TIC-101.PV",
+      "value": 2.45,
+      "quality": "Good",
+      "units": "МПа",
+      "data_type": "float",
+      "timestamp": "2026-08-26T14:35:12.123+03:00"   
+    },
+    {
+      "id": "FIC-202.SP",
+      "value": 150.0,
+      "quality": "Good",
+      "units": "м³/ч",
+      "data_type": "float",
+      "timestamp": "2026-08-26T14:35:12.123+03:00"   
+    },
+    {
+      "id": "MOTOR-303.STATUS",
+      "value": true,
+      "quality": "Good",
+      "units": null
+    },
+    {
+      "id": "TIC-101.PV",
+      "name": "Давление в реакторе R-101",
+      "value": 2.45,
+      "timestamp": "2026-08-26T14:35:12.123+03:00"
+    }
+  ]
+}
