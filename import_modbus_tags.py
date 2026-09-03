@@ -12,26 +12,22 @@ DB_PATH = Path(__file__).parent / "bridgehub.duckdb"
 # Путь к файлу Excel с картой тегов Modbus
 EXCEL_PATH = Path(__file__).parent / "КартаMB.xlsx"
 
-# Названия листов для импорта
-SHEETS = ["DI_Status", "DI_Config"]
-
-
-# Функция чтения данных из Excel листа
-def read_sheet(sheet_name):
-    # Открытие Excel файла
-    wb = openpyxl.load_workbook(EXCEL_PATH, read_only=True, data_only=True)
-    # Получение листа по имени
-    ws = wb[sheet_name]
-    # Чтение всех строк (пропускаем заголовок)
+# Функция чтения данных из Excel листа по индексу
+def read_sheet(wb, sheet_index):
+    ws = wb.worksheets[sheet_index]
     rows = list(ws.iter_rows(min_row=2, values_only=True))
-    # Закрытие Excel файла
-    wb.close()
-    # Возвращаем данные
-    return rows
+    return ws.title, rows
 
 
 # Функция импорта Modbus тегов из Excel в БД
 def import_modbus_tags():
+    # Открытие Excel файла
+    wb = openpyxl.load_workbook(EXCEL_PATH, read_only=True, data_only=True)
+
+    # Количество листов в книге
+    sheet_count = len(wb.worksheets)
+    print(f"Sheets found: {sheet_count}")
+
     # Открытие соединения с базой данных DuckDB
     con = duckdb.connect(str(DB_PATH))
 
@@ -41,10 +37,11 @@ def import_modbus_tags():
     # Счетчик для автоинкремента ID
     tag_id = 1
 
-    # Импорт данных из каждого листа
-    for sheet_name in SHEETS:
-        # Чтение данных из листа
-        rows = read_sheet(sheet_name)
+    # Импорт данных из каждого листа по индексу
+    for i in range(sheet_count):
+        sheet_name, rows = read_sheet(wb, i)
+        print(f"  [{i}] {sheet_name}: {len(rows)} rows")
+
         # Вставка данных в таблицу ModbusTagMap
         for row in rows:
             # Проверка, что строка не пустая
@@ -58,7 +55,7 @@ def import_modbus_tags():
                     row[1],           # tag_name (Tag Name)
                     row[2],           # data_type (Data Type)
                     row[3],           # binding (привязка)
-                    row[4],           # segment (Segment)
+                    "Holding Registers" if row[8] == "RW" else "Input Registers",  # segment (Segment)
                     int(row[5]) if row[5] is not None else None,  # modbus_address (Modbus Address)
                     row[6],           # unit (Unit)
                     row[7],           # description (Description)
@@ -72,6 +69,9 @@ def import_modbus_tags():
                 ])
                 # Увеличение счетчика ID
                 tag_id += 1
+
+    # Закрытие Excel файла
+    wb.close()
 
     # Подсчет количества импортированных тегов
     count = con.execute("SELECT COUNT(*) FROM ModbusTagMap").fetchone()[0]
