@@ -1,6 +1,6 @@
 # BridgeHub
 
-Мост между промышленными протоколами (Modbus TCP, OPC UA, S7) и системами верхнего уровня (SCADA, historians). Сбор данных с устройств, хранение в DuckDB, импорт/экспорт через JSON.
+Мост между промышленными протоколами (Modbus TCP, OPC UA, S7, MQTT) и системами верхнего уровня (SCADA, historians). Сбор данных с устройств, хранение в DuckDB, импорт/экспорт через JSON.
 
 ## Структура проекта
 
@@ -12,9 +12,11 @@ BridgeHub/
 ├── import_modbus_tags.py       # Импорт определений тегов Modbus из Excel
 ├── import_opcua_tags.py        # Импорт определений тегов OPC UA из Excel
 ├── import_s7_tags.py           # Импорт определений тегов S7 из .DB файлов
+├── import_mqtt_tags.py         # Импорт определений тегов MQTT из Excel
 ├── ReadFromModbusTCP.py        # Опрос Modbus TCP устройств
 ├── ReadFromOPCUA.py            # Опрос OPC UA серверов
 ├── ReadFromS7.py               # Опрос S7-1200/1500 (S7CommPlus)
+├── ReadFromMQTT.py             # Подключение к MQTT брокеру и приём данных
 │
 ├── import_json_tags.py         # Импорт runtime-данных из JSON
 ├── export_json_tags.py         # Экспорт runtime-данных в JSON
@@ -22,6 +24,7 @@ BridgeHub/
 │
 ├── КартаMB.xlsx                # Карта тегов Modbus (исходник)
 ├── КартаOPCUA.xlsx             # Карта тегов OPC UA (исходник)
+├── КартаMQTT.xlsx              # Карта тегов MQTT (исходник)
 │
 ├── install_duckdb.cmd          # Установка DuckDB CLI
 ├── open_db.cmd                 # Открытие БД в консоли
@@ -40,7 +43,7 @@ BridgeHub/
 ### 2. Установка Python-зависимостей
 
 ```bash
-pip install duckdb openpyxl pymodbus opcua pyyaml streamlit python-snap7
+pip install duckdb openpyxl pymodbus opcua pyyaml streamlit python-snap7 paho-mqtt
 ```
 
 ## Конфигурация
@@ -69,6 +72,14 @@ s7_devices:
     slot: 1
     name: "PLC_01"
     use_tls: false
+
+# MQTT брокеры
+mqtt_brokers:
+  - host: "192.168.1.50"
+    port: 1883
+    client_id: "bridgehub_mqtt"
+    keepalive: 60
+    qos: 1
 ```
 
 ## Схема базы данных
@@ -80,6 +91,7 @@ s7_devices:
 | `ModbusTagMap` | Определения Modbus тегов | tag_name, segment, modbus_address |
 | `OPCUATagMap` | Определения OPC UA тегов | tag_name, opc_node_id |
 | `S7TagMap` | Определения S7 тегов | tag_name, db_number, byte_offset, data_type |
+| `MQTTTagMap` | Определения MQTT тегов | tag_name, topic, json_path |
 | `TagMap` | Объединённая таблица (legacy) | все поля |
 
 ### Таблицы данных
@@ -89,6 +101,7 @@ s7_devices:
 | `ModbusData` | Runtime-данные Modbus | tag_id → ModbusTagMap.id |
 | `OPCUAData` | Runtime-данные OPC UA | tag_id → OPCUATagMap.id |
 | `S7Data` | Runtime-данные S7 | tag_id → S7TagMap.id |
+| `MQTTData` | Runtime-данные MQTT | tag_id → MQTTTagMap.id |
 | `JsonData` | Runtime-данные из JSON | linked_tag_id → ModbusTagMap/OPCUATagMap (опционально) |
 
 ## Использование
@@ -98,7 +111,8 @@ s7_devices:
 ```bash
 python import_modbus_tags.py    # Импорт из КартаMB.xlsx
 python import_opcua_tags.py     # Импорт из КартаOPCUA.xlsx
-python import_s7_tags.py DB1.DB # Импорт из .DB файла TIA Portal
+python import_s7_tags.py DB1.DB    # Импорт из .DB файла TIA Portal
+python import_mqtt_tags.py          # Импорт из КартаMQTT.xlsx
 ```
 
 ### Опрос устройств
@@ -107,6 +121,7 @@ python import_s7_tags.py DB1.DB # Импорт из .DB файла TIA Portal
 python ReadFromModbusTCP.py     # Опрос Modbus TCP
 python ReadFromOPCUA.py         # Опрос OPC UA
 python ReadFromS7.py            # Опрос S7-1200/1500 (S7CommPlus)
+python ReadFromMQTT.py          # Подключение к MQTT брокеру
 ```
 
 ### Импорт/экспорт runtime-данных (JSON)
@@ -214,4 +229,78 @@ s7_devices:
     slot: 1
     name: "PLC_01"
     use_tls: false  # Для S7-1500 FW 2.x+ с TLS: true
+```
+
+## MQTT
+
+### Конфигурация MQTT брокера
+
+```yaml
+mqtt_brokers:
+  - host: "192.168.1.50"        # IP-адрес MQTT брокера
+    port: 1883                   # TCP-порт (1883 по умолчанию)
+    client_id: "bridgehub_mqtt"  # Client ID (уникальный идентификатор)
+    username: ""                 # Имя пользователя (опционально)
+    password: ""                 # Пароль (опционально)
+    keepalive: 60                # Интервал keepalive (секунды)
+    qos: 1                       # Quality of Service (0, 1 или 2)
+```
+
+### Формат Excel файла для MQTT тегов (КартаMQTT.xlsx)
+
+Файл содержит карту адресов MQTT тегов:
+
+| Столбец | Поле | Описание |
+|---------|------|----------|
+| A | tag_name | Имя тега (обязательно) |
+| B | topic | MQTT топик для подписки |
+| C | json_path | Путь к значению в JSON (например, `data.temperature`) |
+| D | data_type | Тип данных (Boolean, Int32, Float, Double, String) |
+| E | unit | Единицы измерения |
+| F | description | Описание тега |
+| G | access_mode | Режим доступа (RO/RW) |
+| H | broker_id | Идентификатор брокера |
+| I | group_name | Группа тегов |
+| J | scaling | Масштабирование |
+| K | alarm | Конфигурация тревоги |
+| L | notes | Примечания |
+| M | payload_format | Формат полезной нагрузки (json/csv/raw) |
+
+### Пример JSON payload и извлечения значений
+
+MQTT сообщение (JSON):
+```json
+{
+  "device_id": "sensor_01",
+  "data": {
+    "temperature": 25.3,
+    "humidity": 62.1,
+    "pressure": 1013.25
+  },
+  "status": "ok"
+}
+```
+
+Настройка тегов в Excel:
+
+| tag_name | topic | json_path | data_type |
+|----------|-------|-----------|-----------|
+| Температура | sensors/01/data | data.temperature | Float |
+| Влажность | sensors/01/data | data.humidity | Float |
+| Давление | sensors/01/data | data.pressure | Double |
+| Статус | sensors/01/data | status | String |
+
+### Формат CSV payload
+
+Если payload — CSV строка (например, `25.3,62.1,1013.25`), используйте `json_path` как индекс столбца (0-based):
+
+| tag_name | topic | json_path | payload_format | data_type |
+|----------|-------|-----------|----------------|-----------|
+| Температура | sensors/01/csv | 0 | csv | Float |
+| Влажность | sensors/01/csv | 1 | csv | Float |
+
+### Установка зависимостей для MQTT
+
+```bash
+pip install paho-mqtt
 ```

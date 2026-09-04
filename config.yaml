@@ -25,3 +25,13 @@ s7_devices:
     # tls_key: "path/to/key.pem"     # Путь к приватному ключу
     # tls_ca: "path/to/ca.pem"       # Путь к CA сертификату
     # password: ""                   # Пароль PLC (опционально)
+
+# Список MQTT брокеров
+mqtt_brokers:
+  - host: "192.168.0.7"            # IP-адрес MQTT брокера
+    port: 1883                       # TCP-порт (1883 по умолчанию)
+    client_id: "bridgehub_mqtt"      # Client ID (уникальный идентификатор)
+    # username: ""                   # Имя пользователя (опционально)
+    # password: ""                   # Пароль (опционально)
+    keepalive: 60                    # Интервал keepalive (секунды)
+    qos: 1                           # Quality of Service (0, 1 или 2)
