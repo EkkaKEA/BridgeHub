@@ -60,14 +60,22 @@ def load_mqtt_tags(con):
     ]
 
 
-# Функция извлечения значения из JSON по пути (например, "data.temperature")
+# Функция извлечения значения из JSON по пути (например, "data.temperature" или "$.temperature")
 def extract_json_value(payload, json_path):
     if not json_path:
         return payload
+    # Удаление ведущего "$." или "$"
+    path = json_path
+    if path.startswith("$."):
+        path = path[2:]
+    elif path.startswith("$"):
+        path = path[1:]
     # Разбивка пути на части
-    keys = json_path.split(".")
+    keys = path.split(".")
     current = payload
     for key in keys:
+        if not key:
+            continue
         if isinstance(current, dict):
             current = current.get(key)
         else:
@@ -130,7 +138,7 @@ class MQTTHandler:
             payload_format = tag.get("payload_format", "json")
             break
 
-        if payload_format == "json":
+        if payload_format and payload_format.lower() == "json":
             try:
                 payload = json.loads(payload_raw)
             except json.JSONDecodeError:
@@ -144,9 +152,9 @@ class MQTTHandler:
             raw_value = payload_raw
 
             # Извлечение значения в зависимости от формата
-            if payload_format == "json" and isinstance(payload, dict):
+            if payload_format and payload_format.lower() == "json" and isinstance(payload, dict):
                 value = extract_json_value(payload, tag.get("json_path"))
-            elif payload_format == "csv":
+            elif payload_format and payload_format.lower() == "csv":
                 value = extract_csv_value(payload, tag.get("json_path"))
             else:
                 value = payload

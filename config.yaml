@@ -28,7 +28,7 @@ s7_devices:
 
 # Список MQTT брокеров
 mqtt_brokers:
-  - host: "192.168.0.7"            # IP-адрес MQTT брокера
+  - host: "127.0.0.1"              # IP-адрес MQTT брокера (localhost)
     port: 1883                       # TCP-порт (1883 по умолчанию)
     client_id: "bridgehub_mqtt"      # Client ID (уникальный идентификатор)
     # username: ""                   # Имя пользователя (опционально)
